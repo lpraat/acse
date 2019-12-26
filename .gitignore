@@ -1,0 +1,11 @@
+*.cfg
+*.asm
+*.out
+*.o
+*.d
+bin
+Acse.tab.c
+Acse.tab.h
+lex.yy.c
+assembler.tab.c
+assembler.tab.h
