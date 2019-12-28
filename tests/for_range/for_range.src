@@ -1,0 +1,6 @@
+for i in range(100) {
+    write(i);
+}
+
+// Here like in python should be 99
+write(i);
