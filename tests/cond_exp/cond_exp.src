@@ -1,0 +1,7 @@
+int x;
+int i;
+
+i = 20;
+x = 10;
+
+write(300 if x +30 < i else i);
