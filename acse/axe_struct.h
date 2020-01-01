@@ -1,10 +1,10 @@
 /*
  * Andrea Di Biagio
  * Politecnico di Milano, 2007
- * 
+ *
  * axe_struct.h
  * Formal Languages & Compilers Machine, 2007/2008
- * 
+ *
  */
 
 #ifndef _AXE_STRUCT_H
@@ -26,6 +26,13 @@ typedef struct t_axe_label
 {
    int labelID;      /* label identifier */
 } t_axe_label;
+
+typedef struct t_axe_for {
+   int index;
+
+   t_axe_label *l1, *l_start, *l_end;
+
+} t_axe_for;
 
 typedef struct t_axe_register
 {

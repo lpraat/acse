@@ -1,0 +1,23 @@
+int i;
+int y[2];
+int x[3];
+
+x[0] = 1;
+x[1] = 2;
+x[2] = 3;
+
+y = [i+i for i in x];
+
+write(y[0]);
+write(y[1]);
+write(y[2]);
+
+y = [17*2 for i in x];
+
+write(y[0]);
+write(y[2]);
+
+y = [x[0]*100 for i in x];
+
+write(y[0]);
+write(y[1]);
