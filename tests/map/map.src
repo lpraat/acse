@@ -1,0 +1,15 @@
+int vett[3];
+int x;
+
+vett[0] = 1;
+vett[1] = 2;
+vett[2] = 3;
+
+
+map x on vett as {
+    x = x * 123;
+}
+
+write(vett[0]); // 123
+write(vett[1]); // 246
+write(vett[2]); // 369

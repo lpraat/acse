@@ -2,10 +2,10 @@
 /*
  * Andrea Di Biagio
  * Politecnico di Milano, 2007
- * 
+ *
  * Acse.y
  * Formal Languages & Compilers Machine, 2007/2008
- * 
+ *
  */
 
 /*************************************************************************
@@ -14,7 +14,7 @@
 
 ***************************************************************************/
 
-#include <stdio.h>       
+#include <stdio.h>
 #include <stdlib.h>
 #include <assert.h>
 #include "axe_struct.h"
@@ -66,13 +66,13 @@ extern int errorcode;   /* this variable is used to test if an error is found
                          * one or more syntax errors or because something went
                          * wrong in the machine internal state), the errorcode
                          * is set to a value that is different from `AXE_OK'. */
-                         
+
 
 extern int cflow_errorcode;   /* As for `errorcode' this value is used to
                         * test if an error occurs during the creation process of
                         * a control flow graph. More informations can be found
                         * analyzing the file `axe_cflow_graph.h'. */
-                     
+
 /* program informations */
 t_program_infos *program;  /* The singleton instance of `program'.
                             * An instance of `t_program_infos' holds in its
@@ -100,7 +100,7 @@ extern int yyerror(const char* errmsg);
                           SEMANTIC RECORDS
 =========================================================================*/
 
-%union {            
+%union {
    int intval;
    char *svalue;
    t_axe_expression expr;
@@ -108,9 +108,10 @@ extern int yyerror(const char* errmsg);
    t_list *list;
    t_axe_label *label;
    t_while_statement while_stmt;
-} 
+   t_map_statement map_stmt;
+}
 /*=========================================================================
-                               TOKENS 
+                               TOKENS
 =========================================================================*/
 %start program
 
@@ -124,6 +125,10 @@ extern int yyerror(const char* errmsg);
 %token RETURN
 %token READ
 %token WRITE
+
+%token MAP ON AS
+
+%type <map_stmt> MAP
 
 %token <label> DO
 %token <while_stmt> WHILE
@@ -158,7 +163,7 @@ extern int yyerror(const char* errmsg);
 /*=========================================================================
                          BISON GRAMMAR
 =========================================================================*/
-%% 
+%%
 
 /* `program' is the starting non-terminal of the grammar.
  * A program is composed by:
@@ -223,7 +228,7 @@ declaration : IDENTIFIER ASSIGN NUMBER
             {
                /* create a new instance of t_axe_declaration */
                $$ = alloc_declaration($1, 0, 0, 0);
-               
+
                /* test if an `out of memory' occurred */
                if ($$ == NULL)
                   notifyError(AXE_OUT_OF_MEMORY);
@@ -246,6 +251,7 @@ statements  : statements statement       { /* does nothing */ }
 statement   : assign_statement SEMI      { /* does nothing */ }
             | control_statement          { /* does nothing */ }
             | read_write_statement SEMI  { /* does nothing */ }
+            | map_statement              { /* does nothing */ }
             | SEMI            { gen_nop_instruction(program); }
 ;
 
@@ -290,7 +296,7 @@ assign_statement : IDENTIFIER LSQUARE exp RSQUARE ASSIGN exp
                 * `get_symbol_location' perform a query on the symbol table
                 * in order to discover the correct location of
                 * the variable with $1 as identifier */
-               
+
                /* get the location of the symbol with the given ID. */
                location = get_symbol_location(program, $1, 0);
 
@@ -308,7 +314,60 @@ assign_statement : IDENTIFIER LSQUARE exp RSQUARE ASSIGN exp
                free($1);
             }
 ;
-            
+
+map_statement : MAP
+                {
+                   $1.index = getNewRegister(program);
+                   $1.l1 = newLabel(program);
+                   $1.l_end = newLabel(program);
+
+                   assignLabel(program, $1.l1);
+                }
+                IDENTIFIER ON IDENTIFIER AS
+                {
+                   // Check if we finished
+                   t_axe_variable *v1;
+                   v1 = getVariable(program, $5);
+
+                   if (!v1->isArray) exit(-1);
+
+                   int checkReg = getNewRegister(program);
+                   gen_subi_instruction(program, checkReg, $1.index, v1->arraySize);
+                   gen_beq_instruction(program, $1.l_end, 0);
+
+                   // Set element equal to array element
+                   int elem = get_symbol_location(program, $3, 0);
+                   t_axe_expression e_index;
+                   e_index.expression_type = REGISTER;
+                   e_index.value = $1.index;
+                   int arrayEl = loadArrayElement(program, $5, e_index);
+                   gen_add_instruction(program, elem, REG_0, arrayEl, CG_DIRECT_ALL);
+                }
+                LBRACE IDENTIFIER ASSIGN exp
+                {
+                   // Here exp is evaluated so store array element
+                   t_axe_expression data;
+                   if ($11.expression_type == IMMEDIATE) {
+                      data.expression_type = IMMEDIATE;
+                      data.value = $11.value;
+                   } else {
+                      data.expression_type = REGISTER;
+                      data.value = $11.value;
+                   }
+                   t_axe_expression e_index;
+                   e_index.expression_type = REGISTER;
+                   e_index.value = $1.index;
+                   storeArrayElement(program, $5, e_index, data);
+
+                   // Increment index for next iter
+                   gen_addi_instruction(program, $1.index, $1.index, 1);
+                   gen_bt_instruction(program, $1.l1, 0);
+
+                   // Exit label
+                   assignLabel(program, $1.l_end);
+                }
+                SEMI RBRACE
+
 if_statement   : if_stmt
                {
                   /* fix the `label_else' */
@@ -319,10 +378,10 @@ if_statement   : if_stmt
                   /* reserve a new label that points to the address where to jump if
                    * `exp' is verified */
                   $2 = newLabel(program);
-   
+
                   /* exit from the if-else */
                   gen_bt_instruction (program, $2, 0);
-   
+
                   /* fix the `label_else' */
                   assignLabel(program, $1);
                }
@@ -332,7 +391,7 @@ if_statement   : if_stmt
                   assignLabel(program, $2);
                }
 ;
-            
+
 if_stmt  :  IF
                {
                   /* the label that points to the address where to jump if
@@ -388,13 +447,13 @@ while_statement  : WHILE
                      assignLabel(program, $1.label_end);
                   }
 ;
-                  
+
 do_while_statement  : DO
                      {
                         /* the label that points to the address where to jump if
                          * `exp' is not verified */
                         $1 = newLabel(program);
-                        
+
                         /* fix the label */
                         assignLabel(program, $1);
                      }
@@ -418,14 +477,14 @@ return_statement : RETURN
             }
 ;
 
-read_statement : READ LPAR IDENTIFIER RPAR 
+read_statement : READ LPAR IDENTIFIER RPAR
             {
                int location;
-               
+
                /* read from standard input an integer value and assign
                 * it to a variable associated with the given identifier */
                /* get the location of the symbol with the given ID */
-               
+
                /* lookup the symbol table and fetch the register location
                 * associated with the IDENTIFIER $3. */
                location = get_symbol_location(program, $3, 0);
@@ -437,10 +496,10 @@ read_statement : READ LPAR IDENTIFIER RPAR
                free($3);
             }
 ;
-            
-write_statement : WRITE LPAR exp RPAR 
+
+write_statement : WRITE LPAR exp RPAR
             {
-   
+
                int location;
 
                if ($3.expression_type == IMMEDIATE)
@@ -460,10 +519,10 @@ write_statement : WRITE LPAR exp RPAR
 exp: NUMBER      { $$ = create_expression ($1, IMMEDIATE); }
    | IDENTIFIER  {
                      int location;
-   
+
                      /* get the location of the symbol with the given ID */
                      location = get_symbol_location(program, $1, 0);
-                     
+
                      /* return the register location of IDENTIFIER as
                       * a value for `exp' */
                      $$ = create_expression (location, REGISTER);
@@ -473,7 +532,7 @@ exp: NUMBER      { $$ = create_expression ($1, IMMEDIATE); }
    }
    | IDENTIFIER LSQUARE exp RSQUARE {
                      int reg;
-                     
+
                      /* load the value IDENTIFIER[exp]
                       * into `arrayElement' */
                      reg = loadArrayElement(program, $1, $3);
@@ -492,7 +551,7 @@ exp: NUMBER      { $$ = create_expression ($1, IMMEDIATE); }
    | NOT_OP IDENTIFIER  {
                            int identifier_location;
                            int output_register;
-   
+
                            /* get the location of the symbol with the given ID */
                            identifier_location =
                                  get_symbol_location(program, $2, 0);
@@ -565,7 +624,7 @@ exp: NUMBER      { $$ = create_expression ($1, IMMEDIATE); }
                            /* create an expression for regisrer REG_0 */
                            exp_r0.value = REG_0;
                            exp_r0.expression_type = REGISTER;
-                           
+
                            $$ = handle_bin_numeric_op
                                  (program, exp_r0, $2, SUB);
                         }
@@ -580,17 +639,17 @@ int main (int argc, char **argv)
 {
    /* initialize all the compiler data structures and global variables */
    init_compiler(argc, argv);
-   
+
    /* start the parsing procedure */
    yyparse();
-   
+
 #ifndef NDEBUG
    fprintf(stdout, "Parsing process completed. \n");
 #endif
 
    /* test if the parsing process completed succesfully */
    checkConsistency();
-   
+
 #ifndef NDEBUG
    fprintf(stdout, "Creating a control flow graph. \n");
 #endif
@@ -606,10 +665,10 @@ int main (int argc, char **argv)
    assert(file_infos->syTable_output != NULL);
    printSymbolTable(program->sy_table, file_infos->syTable_output);
    printGraphInfos(graph, file_infos->cfg_1, 0);
-      
+
    fprintf(stdout, "Updating the basic blocks. \n");
 #endif
-      
+
    /* update the control flow graph by inserting load and stores inside
    * every basic block */
    graph = insertLoadAndStoreInstr(program, graph);
@@ -623,17 +682,17 @@ int main (int argc, char **argv)
 #ifndef NDEBUG
    printGraphInfos(graph, file_infos->cfg_2, 1);
 #endif
-      
+
 #ifndef NDEBUG
    fprintf(stdout, "Starting the register allocation process. \n");
 #endif
    /* initialize the register allocator by using the control flow
     * informations stored into the control flow graph */
    RA = initializeRegAlloc(graph);
-      
+
    /* execute the linear scan algorythm */
    execute_linear_scan(RA);
-      
+
 #ifndef NDEBUG
    printRegAllocInfos(RA, file_infos->reg_alloc_output);
 #endif
@@ -649,11 +708,11 @@ int main (int argc, char **argv)
    fprintf(stdout, "Writing the assembly file... \n");
 #endif
    writeAssembly(program, file_infos->output_file_name);
-      
+
 #ifndef NDEBUG
    fprintf(stdout, "Assembly written on file \"%s\".\n", file_infos->output_file_name);
 #endif
-   
+
    /* shutdown the compiler */
    shutdownCompiler(0);
 
@@ -666,6 +725,6 @@ int main (int argc, char **argv)
 int yyerror(const char* errmsg)
 {
    errorcode = AXE_SYNTAX_ERROR;
-   
+
    return 0;
 }
