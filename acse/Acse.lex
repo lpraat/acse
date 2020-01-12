@@ -1,6 +1,6 @@
 /***************************************************************************
 
-                                    Scanner 
+                                    Scanner
 
 ***************************************************************************/
 %option noyywrap
@@ -8,10 +8,10 @@
 /*
  * Andrea Di Biagio
  * Politecnico di Milano, 2007
- * 
+ *
  * Axe.lex
  * Formal Languages & Compilers Machine, 2007/2008
- * 
+ *
  */
 
 #include <string.h>
@@ -55,7 +55,7 @@ ID       [a-zA-Z_][a-zA-Z0-9_]*
 
 <comment>[^*\n]*
 <comment>[^*\n]*\n      { ++line_num; }
-<comment>"*"+[^*/\n]*   
+<comment>"*"+[^*/\n]*
 <comment>"*"+[^*/\n]*\n { ++line_num; }
 <comment>"*"+"/"        BEGIN(INITIAL);
 
@@ -97,6 +97,11 @@ ID       [a-zA-Z_][a-zA-Z0-9_]*
 "return"          { return RETURN; }
 "read"            { return READ; }
 "write"           { return WRITE; }
+
+"reduce"          { return REDUCE; }
+"into"            { return INTO; }
+"as"              { return AS; }
+"on"              { return ON; }
 
 {ID}              { yylval.svalue=strdup(yytext); return IDENTIFIER; }
 {DIGIT}+          { yylval.intval = atoi( yytext );

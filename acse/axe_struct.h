@@ -1,10 +1,10 @@
 /*
  * Andrea Di Biagio
  * Politecnico di Milano, 2007
- * 
+ *
  * axe_struct.h
  * Formal Languages & Compilers Machine, 2007/2008
- * 
+ *
  */
 
 #ifndef _AXE_STRUCT_H
@@ -113,6 +113,11 @@ typedef struct t_while_statement
    t_axe_label *label_end;         /* this label points to the instruction
                                     * that follows the while construct */
 } t_while_statement;
+
+typedef struct t_reduce_statement {
+   t_axe_label *l1, *l_start, *l_end;
+   int index;
+} t_reduce_statement;
 
 /* create a label */
 extern t_axe_label * alloc_label(int value);
